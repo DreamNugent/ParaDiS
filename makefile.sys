@@ -90,9 +90,9 @@ ifeq ($(SYS),linux)
    CPP.linux               = $(CPP_$(MODE).linux)
    CPPFLAG.linux           = $(CPPFLAG_$(MODE).linux)
 
-   CUDA_PATH              := $(CUDA_PATH)
-   CUDA_LIBS              := $(CUDA_LIBS)
-   NVCC                   := $(NVCC)
+   CUDA_PATH              := /usr/local/cuda/
+   CUDA_LIBS              := /usr/local/cuda/lib64/
+   NVCC                   := /usr/local/cuda/bin/nvcc
    NVCC_INCLUDES           =
 
 ifeq ($(MODE),PARALLEL)

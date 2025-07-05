@@ -49,7 +49,7 @@ endif
 #-------------------------------------------------------------------------------------------
 # Lastly - you can bypass the above automation and explicitely set the SYS parameter here...
 #-------------------------------------------------------------------------------------------
-# SYS=linux.intel
+SYS=linux
 
 #-------------------------------------------------------------------------------------------
 # Toss an error if the system parameter has not been identified.
