@@ -108,6 +108,7 @@ void TimerInit(Home_t *home)
 	TimerRegister(home, LOADCURVE,             "load curve           ");
 	TimerRegister(home, LOAD_BALANCE,          "load balance         ");
 	TimerRegister(home, SEGFORCE_COMM,         "segment force comm   ");
+	TimerRegister(home, SEG_SEG_FORCE,         "segment-segment force");
 
 	return;
 }
@@ -482,6 +483,44 @@ void TimeAtRestart(Home_t *home, int stage)
     		}
     		fclose(file);
         }
+
+// /*
+//  *      Write segment-segment force timing data to a separate file
+//  */
+//         char seg_seg_path[128];
+//         if (stage == STAGE_TERM)
+//             sprintf(seg_seg_path, "%s/seg_seg_force.final", DIR_TIMERS);
+//         else
+//             sprintf(seg_seg_path, "%s/seg_seg_force%04d", DIR_TIMERS, home->param->savetimerscounter);
+
+//         FILE *seg_seg_file = fopen(seg_seg_path, "w");
+//         if (seg_seg_file)
+//         {
+//             fprintf(seg_seg_file, "cycle number :    %d\n", home->cycle);
+//             fprintf(seg_seg_file, "domain geometry : %d x %d x %d\n", param->nXdoms, param->nYdoms, param->nZdoms);
+//             fprintf(seg_seg_file, "cell geometry :   %d x %d x %d\n\n", param->nXcells, param->nYcells, param->nZcells);
+
+//             fprintf(seg_seg_file, "Domain\tSeg-Seg Force Time\tLocal Force Time\tPercentage\n\n");
+
+//             for (int j = 0; j < numDoms; j++)
+//             {
+//                 real8 seg_seg_time = allTimes[j * count + SEG_SEG_FORCE];
+//                 real8 local_time = allTimes[j * count + LOCAL_FORCE];
+//                 real8 percentage = (local_time > 0.0) ? (seg_seg_time / local_time) * 100.0 : 0.0;
+
+//                 fprintf(seg_seg_file, "%d\t%9.3f\t%9.3f\t%6.2f%%\n", 
+//                     j, seg_seg_time, local_time, percentage);
+//             }
+
+//             real8 avg_seg_seg_time = avgTimes[SEG_SEG_FORCE];
+//             real8 avg_local_time = avgTimes[LOCAL_FORCE];
+//             real8 avg_percentage = (avg_local_time > 0.0) ? (avg_seg_seg_time / avg_local_time) * 100.0 : 0.0;
+
+//             fprintf(seg_seg_file, "\nAverage\t%9.3f\t%9.3f\t%6.2f%%\n", 
+//                 avg_seg_seg_time, avg_local_time, avg_percentage);
+
+//             fclose(seg_seg_file);
+//         }
 
 /*
  *		Free up temporary storage allocated on domain zero only

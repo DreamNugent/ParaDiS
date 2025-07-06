@@ -2094,12 +2094,16 @@ void LocalSegForces(Home_t *home, int reqType)
             int            ssf_mode = 0;   // (isotropic  )
 #endif
 
+            TimerStart(home, SEG_SEG_FORCE);
+
 //#define USE_NEW_SSF_FORCES
 #ifdef  USE_NEW_SSF_FORCES
             if ( ssf_sp && (ssf_np>0) ) { SSF_Compute_Forces (home,ssf_sp,ssf_np,ssf_mode); }
 #else
             if ( ssf_sp && (ssf_np>0) ) {     ComputeForces  (home,ssf_sp,ssf_np); }
 #endif
+
+            TimerStop(home, SEG_SEG_FORCE);
         }
 
 /*
