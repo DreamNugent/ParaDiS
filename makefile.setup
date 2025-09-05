@@ -49,6 +49,7 @@ endif
 #-------------------------------------------------------------------------------------------
 # Lastly - you can bypass the above automation and explicitely set the SYS parameter here...
 #-------------------------------------------------------------------------------------------
+#目标系统设置（配合makefile.sys文件可以配置目标系统编译环境）
 SYS=linux
 
 #-------------------------------------------------------------------------------------------
@@ -63,6 +64,7 @@ endif
 #    Set the execution MODE to PARALLEL to enable compile-time support
 #    for MPI and multi-cpu support, or SERIAL for single-cpu compilation
 #
+#MPI支持开关
 #MODE=SERIAL
 MODE=PARALLEL
 
@@ -146,8 +148,9 @@ OPT = -O3 -g
 #
 #    ref: http://en.wikipedia.org/wiki/CUDA
 #-------------------------------------------------------------------------------------------
-#GPU_ENABLED=ON
-GPU_ENABLED=OFF
+#GPU加速功能控制开关
+GPU_ENABLED=ON
+#GPU_ENABLED=OFF
 
 #-------------------------------------------------------------------------------------------
 #  NVCC compiler flag info...
