@@ -2096,11 +2096,19 @@ void LocalSegForces(Home_t *home, int reqType)
 
             TimerStart(home, SEG_SEG_FORCE);
 
-//#define USE_NEW_SSF_FORCES
+#define USE_NEW_SSF_FORCES
 #ifdef  USE_NEW_SSF_FORCES
-            if ( ssf_sp && (ssf_np>0) ) { SSF_Compute_Forces (home,ssf_sp,ssf_np,ssf_mode); }
+            if ( ssf_sp && (ssf_np>0) ) { 
+                TimerStart(home, SSF_GPU_FORCE);
+                SSF_Compute_Forces (home,ssf_sp,ssf_np,ssf_mode); 
+                TimerStop(home, SSF_GPU_FORCE);
+            }
 #else
-            if ( ssf_sp && (ssf_np>0) ) {     ComputeForces  (home,ssf_sp,ssf_np); }
+            if ( ssf_sp && (ssf_np>0) ) { 
+                TimerStart(home, SSF_CPU_FORCE);
+                ComputeForces  (home,ssf_sp,ssf_np); 
+                TimerStop(home, SSF_CPU_FORCE);
+            }
 #endif
 
             TimerStop(home, SEG_SEG_FORCE);

@@ -109,6 +109,8 @@ void TimerInit(Home_t *home)
 	TimerRegister(home, LOAD_BALANCE,          "load balance         ");
 	TimerRegister(home, SEGFORCE_COMM,         "segment force comm   ");
 	TimerRegister(home, SEG_SEG_FORCE,         "segment-segment force");
+	TimerRegister(home, SSF_GPU_FORCE,         "gpu seg-seg force    ");
+	TimerRegister(home, SSF_CPU_FORCE,         "cpu seg-seg force    ");
 
 	return;
 }
@@ -500,24 +502,37 @@ void TimeAtRestart(Home_t *home, int stage)
 //             fprintf(seg_seg_file, "domain geometry : %d x %d x %d\n", param->nXdoms, param->nYdoms, param->nZdoms);
 //             fprintf(seg_seg_file, "cell geometry :   %d x %d x %d\n\n", param->nXcells, param->nYcells, param->nZcells);
 
-//             fprintf(seg_seg_file, "Domain\tSeg-Seg Force Time\tLocal Force Time\tPercentage\n\n");
+//             fprintf(seg_seg_file, "Domain\tSeg-Seg Force Time\tGPU Seg-Seg Time\tCPU Seg-Seg Time\tLocal Force Time\tSSF%%\tGPU%%\tCPU%%\n\n");
 
 //             for (int j = 0; j < numDoms; j++)
 //             {
 //                 real8 seg_seg_time = allTimes[j * count + SEG_SEG_FORCE];
+//                 real8 gpu_ssf_time = allTimes[j * count + SSF_GPU_FORCE];
+//                 real8 cpu_ssf_time = allTimes[j * count + SSF_CPU_FORCE];
 //                 real8 local_time = allTimes[j * count + LOCAL_FORCE];
-//                 real8 percentage = (local_time > 0.0) ? (seg_seg_time / local_time) * 100.0 : 0.0;
+                
+//                 real8 ssf_percentage = (local_time > 0.0) ? (seg_seg_time / local_time) * 100.0 : 0.0;
+//                 real8 gpu_percentage = (local_time > 0.0) ? (gpu_ssf_time / local_time) * 100.0 : 0.0;
+//                 real8 cpu_percentage = (local_time > 0.0) ? (cpu_ssf_time / local_time) * 100.0 : 0.0;
 
-//                 fprintf(seg_seg_file, "%d\t%9.3f\t%9.3f\t%6.2f%%\n", 
-//                     j, seg_seg_time, local_time, percentage);
+//                 fprintf(seg_seg_file, "%d\t%9.3f\t%9.3f\t%9.3f\t%9.3f\t%6.2f%%\t%6.2f%%\t%6.2f%%\n", 
+//                     j, seg_seg_time, gpu_ssf_time, cpu_ssf_time, local_time, 
+//                     ssf_percentage, gpu_percentage, cpu_percentage);
 //             }
 
+//             // 计算平均值
 //             real8 avg_seg_seg_time = avgTimes[SEG_SEG_FORCE];
+//             real8 avg_gpu_ssf_time = avgTimes[SSF_GPU_FORCE];
+//             real8 avg_cpu_ssf_time = avgTimes[SSF_CPU_FORCE];
 //             real8 avg_local_time = avgTimes[LOCAL_FORCE];
-//             real8 avg_percentage = (avg_local_time > 0.0) ? (avg_seg_seg_time / avg_local_time) * 100.0 : 0.0;
+            
+//             real8 avg_ssf_percentage = (avg_local_time > 0.0) ? (avg_seg_seg_time / avg_local_time) * 100.0 : 0.0;
+//             real8 avg_gpu_percentage = (avg_local_time > 0.0) ? (avg_gpu_ssf_time / avg_local_time) * 100.0 : 0.0;
+//             real8 avg_cpu_percentage = (avg_local_time > 0.0) ? (avg_cpu_ssf_time / avg_local_time) * 100.0 : 0.0;
 
-//             fprintf(seg_seg_file, "\nAverage\t%9.3f\t%9.3f\t%6.2f%%\n", 
-//                 avg_seg_seg_time, avg_local_time, avg_percentage);
+//             fprintf(seg_seg_file, "\nAverage\t%9.3f\t%9.3f\t%9.3f\t%9.3f\t%6.2f%%\t%6.2f%%\t%6.2f%%\n", 
+//                 avg_seg_seg_time, avg_gpu_ssf_time, avg_cpu_ssf_time, avg_local_time, 
+//                 avg_ssf_percentage, avg_gpu_percentage, avg_cpu_percentage);
 
 //             fclose(seg_seg_file);
 //         }

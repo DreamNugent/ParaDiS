@@ -73,6 +73,8 @@ enum {
     LOAD_BALANCE           ,
     SEGFORCE_COMM          ,
     SEG_SEG_FORCE          ,
+    SSF_GPU_FORCE          ,
+    SSF_CPU_FORCE          ,
     TIMER_BLOCK_SIZE         ///< (must be last in the list)
 };
 
