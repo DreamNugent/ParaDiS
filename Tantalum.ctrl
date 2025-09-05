@@ -19,9 +19,9 @@ numXdoms   = 1
 numYdoms   = 1
 numZdoms   = 1
 
-numXcells  = 0
-numYcells  = 0
-numZcells  = 0
+numXcells  = 1
+numYcells  = 1
+numZcells  = 1
 
 DLBfreq    = 1
 decompType = 2
@@ -36,7 +36,7 @@ nextDT             = 1.0e-08
 fmEnabled       = 0
 fmMPOrder       = 2
 fmTaylorOrder   = 5
-fmCorrectionTbl = "/home/niu/ParaDiS/inputs/fm-ctab.Ta.600K.0GPa.m2.t5.dat"
+fmCorrectionTbl = "inputs/fm-ctab.Ta.600K.0GPa.m2.t5.dat"
 
 loadType = 1
 eRate    = 1.0e+03
@@ -56,6 +56,6 @@ savepropfreq    = 50
 
 savetimers      = 1
 
-gpu_enabled     = 0
+gpu_enabled     = 1
 
 winDefaultsFile =  "inputs/paradis.xdefaults"  
