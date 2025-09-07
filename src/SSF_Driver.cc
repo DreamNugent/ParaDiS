@@ -62,6 +62,7 @@
 #include "Anisotropic.h"
 #include "SSF_PV_t.h"
 #include "SSF_FV_t.h"
+#include "SSF_FV_SoA_t.h"
 #include "SSF_Iso.h"
 #include "SSF_Aniso.h"
 #include "SSF_Driver.h"
@@ -977,6 +978,64 @@ void SSF_Iso_K
       SSF_Iso(f1,f2,f3,f4, p1,p2,p3,p4, b1,b3, a,mu,nu,ecrit, lx,ly,lz, sx,sy,sz);
    }
 }
+
+// New SoA version with improved memory coalescing
+__cuda_global__
+void SSF_Iso_SoA_K
+(
+    // SoA force arrays for better memory coalescing
+          real8    *f1x,   real8    *f1y,   real8    *f1z,   ///< force components on node 1
+          real8    *f2x,   real8    *f2y,   real8    *f2z,   ///< force components on node 2  
+          real8    *f3x,   real8    *f3y,   real8    *f3z,   ///< force components on node 3
+          real8    *f4x,   real8    *f4y,   real8    *f4z,   ///< force components on node 4
+    const real8    *nv   ,  ///< source node positions  (n1,n2,n3,n4,n5,n6,n7,...)
+    const SSF_PV_t *pv   ,  ///< source pvec structures (pv1,pv2,pv3,pv4,pv5,pv6,...)
+    const int       np   ,  ///< number of segment pairs
+    const real8     a    ,  ///< core radius
+    const real8     mu   ,  ///< shear modulus
+    const real8     nu   ,  ///< poisson ratio
+    const real8     ecrit,  ///< critical angle for parallelism test
+    const real8     lx   ,  ///< simulation box size (x)
+    const real8     ly   ,  ///< simulation box size (y)
+    const real8     lz   ,  ///< simulation box size (z)
+    const real8     sx   ,  ///< reciprocal of simulation box size (1.0/lx) (zero if PBC not active)
+    const real8     sy   ,  ///< reciprocal of simulation box size (1.0/ly) (zero if PBC not active)
+    const real8     sz      ///< reciprocal of simulation box size (1.0/lz) (zero if PBC not active)
+)
+{
+   int bw = (blockDim .x);  // bw = cuda block  width
+   int bx = (blockIdx .x);  // bx = cuda block  index
+   int tx = (threadIdx.x);  // tx = cuda thread index
+   int i  = bx*bw+tx;       // i  = pair index for this kernel
+
+   if (pv && (i<np) )
+   {
+      // Load node positions with improved memory access pattern
+      const real8 *p1 = nv + 3*pv[i].n1;
+      const real8 *p2 = nv + 3*pv[i].n2;
+      const real8 *p3 = nv + 3*pv[i].n3;
+      const real8 *p4 = nv + 3*pv[i].n4;
+      const real8 *b1 =        pv[i].b1;
+      const real8 *b3 =        pv[i].b3;
+
+      // Temporary force variables for computation
+      real8 tf1x, tf1y, tf1z;
+      real8 tf2x, tf2y, tf2z; 
+      real8 tf3x, tf3y, tf3z;
+      real8 tf4x, tf4y, tf4z;
+
+      // Compute forces using the scalar version of SSF_Iso
+      SSF_Iso(tf1x,tf1y,tf1z, tf2x,tf2y,tf2z, tf3x,tf3y,tf3z, tf4x,tf4y,tf4z,
+              p1[0],p1[1],p1[2], p2[0],p2[1],p2[2], p3[0],p3[1],p3[2], p4[0],p4[1],p4[2],
+              b1[0],b1[1],b1[2], b3[0],b3[1],b3[2], a,mu,nu,ecrit);
+
+      // Store results in SoA layout - coalesced memory writes
+      if (f1x && f1y && f1z) { f1x[i] = tf1x; f1y[i] = tf1y; f1z[i] = tf1z; }
+      if (f2x && f2y && f2z) { f2x[i] = tf2x; f2y[i] = tf2y; f2z[i] = tf2z; }
+      if (f3x && f3y && f3z) { f3x[i] = tf3x; f3y[i] = tf3y; f3z[i] = tf3z; }
+      if (f4x && f4y && f4z) { f4x[i] = tf4x; f4y[i] = tf4y; f4z[i] = tf4z; }
+   }
+}
 #endif
 
 #ifdef __CUDACC__
@@ -1163,6 +1222,141 @@ void SSF_GPU
         // copy the resulting forces back to the heap (if needed)...
 
         if ( fv && fvc && (fv!=fvc) ) { memcpy(fv,fvc,4*3*np*sizeof(real8)); }
+    }
+
+#endif  // __CUDACC__
+}
+
+// New SoA version with improved memory efficiency
+__cuda_host__
+void SSF_GPU_SoA
+(
+          SSF_FV_t *fv  ,  ///< resulting forces            (f1,f2,f3,f4,....)
+    const real8    *nv  ,  ///< source node positions       (n1,n2,n3,n4,n5,n6,...)
+    const SSF_PV_t *pv  ,  ///< source pair vector structs  (p1,p2,p3,p4,p5,p6,...)
+    const int       nn  ,  ///< number of source nodes
+    const int       np  ,  ///< number of segment pairs
+    const int       mode   ///< isotropy mode (0=isotropic,1=anisotropic)
+)
+{
+#ifndef __CUDACC__
+    printf("Error - %s::%s() ln=%d application not built with nvcc\n", __FILE__,__func__,__LINE__);
+    exit(0);
+#endif
+
+#ifdef __CUDACC__
+    // Calculate memory requirements for SoA layout
+    // 12 force component arrays (4 nodes × 3 components each)
+    size_t bytes_forces = 12 * np * sizeof(real8);   // f1x,f1y,f1z, f2x,f2y,f2z, f3x,f3y,f3z, f4x,f4y,f4z
+    size_t bytes_nodes  = 3 * nn * sizeof(real8);    // node positions
+    size_t bytes_pairs  = np * sizeof(SSF_PV_t);     // pair structures
+    
+    size_t total_bytes = bytes_forces + bytes_nodes + bytes_pairs;
+    
+    SSF_Allocate(total_bytes);
+
+    if (mbuf_cpu && mbuf_gpu)
+    {
+        unsigned char *pc = mbuf_cpu;
+        unsigned char *pg = mbuf_gpu;
+
+        // Host memory layout (SoA force components)
+        real8 *f1x_h = (real8 *) pc; pc += np * sizeof(real8);
+        real8 *f1y_h = (real8 *) pc; pc += np * sizeof(real8);
+        real8 *f1z_h = (real8 *) pc; pc += np * sizeof(real8);
+        real8 *f2x_h = (real8 *) pc; pc += np * sizeof(real8);
+        real8 *f2y_h = (real8 *) pc; pc += np * sizeof(real8);
+        real8 *f2z_h = (real8 *) pc; pc += np * sizeof(real8);
+        real8 *f3x_h = (real8 *) pc; pc += np * sizeof(real8);
+        real8 *f3y_h = (real8 *) pc; pc += np * sizeof(real8);
+        real8 *f3z_h = (real8 *) pc; pc += np * sizeof(real8);
+        real8 *f4x_h = (real8 *) pc; pc += np * sizeof(real8);
+        real8 *f4y_h = (real8 *) pc; pc += np * sizeof(real8);
+        real8 *f4z_h = (real8 *) pc; pc += np * sizeof(real8);
+        
+        real8    *nvc = (real8    *) pc; pc += 3*nn*sizeof(real8);      // node positions (host)
+        SSF_PV_t *pvc = (SSF_PV_t *) pc; pc += np*sizeof(SSF_PV_t);     // pair structures (host)
+
+        // Device memory layout (SoA force components)
+        real8 *f1x_d = (real8 *) pg; pg += np * sizeof(real8);
+        real8 *f1y_d = (real8 *) pg; pg += np * sizeof(real8);
+        real8 *f1z_d = (real8 *) pg; pg += np * sizeof(real8);
+        real8 *f2x_d = (real8 *) pg; pg += np * sizeof(real8);
+        real8 *f2y_d = (real8 *) pg; pg += np * sizeof(real8);
+        real8 *f2z_d = (real8 *) pg; pg += np * sizeof(real8);
+        real8 *f3x_d = (real8 *) pg; pg += np * sizeof(real8);
+        real8 *f3y_d = (real8 *) pg; pg += np * sizeof(real8);
+        real8 *f3z_d = (real8 *) pg; pg += np * sizeof(real8);
+        real8 *f4x_d = (real8 *) pg; pg += np * sizeof(real8);
+        real8 *f4y_d = (real8 *) pg; pg += np * sizeof(real8);
+        real8 *f4z_d = (real8 *) pg; pg += np * sizeof(real8);
+        
+        real8    *nvg = (real8    *) pg; pg += 3*nn*sizeof(real8);      // node positions (device)
+        SSF_PV_t *pvg = (SSF_PV_t *) pg; pg += np*sizeof(SSF_PV_t);     // pair structures (device)
+
+        // Copy input data from heap to pinned memory
+        if ( nv && nvc && (nv!=nvc) ) { memcpy(nvc, nv, 3*nn*sizeof(real8)); }
+        if ( pv && pvc && (pv!=pvc) ) { memcpy(pvc, pv, np*sizeof(SSF_PV_t)); }
+
+        // Transfer input data to GPU
+        CUDART_CHECK(cudaMemcpy( (void *) nvg, (void *) nvc, 3*nn*sizeof(real8), cudaMemcpyHostToDevice ));
+        CUDART_CHECK(cudaMemcpy( (void *) pvg, (void *) pvc, np*sizeof(SSF_PV_t), cudaMemcpyHostToDevice ));
+
+        // Initialize force arrays to zero on device
+        CUDART_CHECK(cudaMemset( (void *) f1x_d, 0, np * sizeof(real8) ));
+        CUDART_CHECK(cudaMemset( (void *) f1y_d, 0, np * sizeof(real8) ));
+        CUDART_CHECK(cudaMemset( (void *) f1z_d, 0, np * sizeof(real8) ));
+        CUDART_CHECK(cudaMemset( (void *) f2x_d, 0, np * sizeof(real8) ));
+        CUDART_CHECK(cudaMemset( (void *) f2y_d, 0, np * sizeof(real8) ));
+        CUDART_CHECK(cudaMemset( (void *) f2z_d, 0, np * sizeof(real8) ));
+        CUDART_CHECK(cudaMemset( (void *) f3x_d, 0, np * sizeof(real8) ));
+        CUDART_CHECK(cudaMemset( (void *) f3y_d, 0, np * sizeof(real8) ));
+        CUDART_CHECK(cudaMemset( (void *) f3z_d, 0, np * sizeof(real8) ));
+        CUDART_CHECK(cudaMemset( (void *) f4x_d, 0, np * sizeof(real8) ));
+        CUDART_CHECK(cudaMemset( (void *) f4y_d, 0, np * sizeof(real8) ));
+        CUDART_CHECK(cudaMemset( (void *) f4z_d, 0, np * sizeof(real8) ));
+
+        // Launch the SoA compute kernel
+        {
+           int  nthrd = ::cu_nthrd;
+           dim3 cu_blks (((np+nthrd-1)/nthrd),1,1);
+           dim3 cu_thrds(nthrd,1,1);
+
+           if (mode==0) {  
+               SSF_Iso_SoA_K<<<cu_blks,cu_thrds>>>(
+                   f1x_d,f1y_d,f1z_d, f2x_d,f2y_d,f2z_d, f3x_d,f3y_d,f3z_d, f4x_d,f4y_d,f4z_d,
+                   nvg, pvg, np, 
+                   ::a, ::mu, ::nu, ::ecrit,
+                   ::lx, ::ly, ::lz, ::sx, ::sy, ::sz );
+           }
+           // Note: Anisotropic SoA version would need similar implementation
+
+           CUDART_CHECK(cudaGetLastError());
+        }
+
+        // Transfer results back to host
+        CUDART_CHECK(cudaMemcpy( (void *) f1x_h, (void *) f1x_d, np * sizeof(real8), cudaMemcpyDeviceToHost ));
+        CUDART_CHECK(cudaMemcpy( (void *) f1y_h, (void *) f1y_d, np * sizeof(real8), cudaMemcpyDeviceToHost ));
+        CUDART_CHECK(cudaMemcpy( (void *) f1z_h, (void *) f1z_d, np * sizeof(real8), cudaMemcpyDeviceToHost ));
+        CUDART_CHECK(cudaMemcpy( (void *) f2x_h, (void *) f2x_d, np * sizeof(real8), cudaMemcpyDeviceToHost ));
+        CUDART_CHECK(cudaMemcpy( (void *) f2y_h, (void *) f2y_d, np * sizeof(real8), cudaMemcpyDeviceToHost ));
+        CUDART_CHECK(cudaMemcpy( (void *) f2z_h, (void *) f2z_d, np * sizeof(real8), cudaMemcpyDeviceToHost ));
+        CUDART_CHECK(cudaMemcpy( (void *) f3x_h, (void *) f3x_d, np * sizeof(real8), cudaMemcpyDeviceToHost ));
+        CUDART_CHECK(cudaMemcpy( (void *) f3y_h, (void *) f3y_d, np * sizeof(real8), cudaMemcpyDeviceToHost ));
+        CUDART_CHECK(cudaMemcpy( (void *) f3z_h, (void *) f3z_d, np * sizeof(real8), cudaMemcpyDeviceToHost ));
+        CUDART_CHECK(cudaMemcpy( (void *) f4x_h, (void *) f4x_d, np * sizeof(real8), cudaMemcpyDeviceToHost ));
+        CUDART_CHECK(cudaMemcpy( (void *) f4y_h, (void *) f4y_d, np * sizeof(real8), cudaMemcpyDeviceToHost ));
+        CUDART_CHECK(cudaMemcpy( (void *) f4z_h, (void *) f4z_d, np * sizeof(real8), cudaMemcpyDeviceToHost ));
+
+        // Convert from SoA back to AoS format for output
+        if (fv) {
+            for (int i = 0; i < np; i++) {
+                fv[i].f1[0] = f1x_h[i]; fv[i].f1[1] = f1y_h[i]; fv[i].f1[2] = f1z_h[i];
+                fv[i].f2[0] = f2x_h[i]; fv[i].f2[1] = f2y_h[i]; fv[i].f2[2] = f2z_h[i];
+                fv[i].f3[0] = f3x_h[i]; fv[i].f3[1] = f3y_h[i]; fv[i].f3[2] = f3z_h[i];
+                fv[i].f4[0] = f4x_h[i]; fv[i].f4[1] = f4y_h[i]; fv[i].f4[2] = f4z_h[i];
+            }
+        }
     }
 
 #endif  // __CUDACC__
@@ -1809,7 +2003,7 @@ void SSF_Compute_Forces
       SSF_Gather_Nodes(nv,nodes,nn);                                  // serialize the node positions
       SSF_Gather_Pairs(pv,sp,np);                                     // serialize the segment pairs
 
-      if (gpu_enabled) { SSF_GPU_Strm (fv,nv,pv,nn,np,mode); }        // compute forces using gpu
+      if (gpu_enabled) { SSF_GPU (fv,nv,pv,nn,np,mode); }        // compute forces using gpu
       else
       {
          if (mode==0)  { SSF_Iso_CPU  (fv,nv,pv,np); }                // compute iso   forces using cpu

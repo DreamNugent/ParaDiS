@@ -269,6 +269,17 @@ void SSF_GPU
 );
 
 __cuda_host__
+void SSF_GPU_SoA
+(
+          SSF_FV_t     *fv  ,  ///< resulting forces            (f1,f2,f3,f4,....)
+   const real8         *nv  ,  ///< source node positions       (n1,n2,n3,n4,n5,n6,...)
+   const SSF_PV_t      *pv  ,  ///< source pair vector structs  (p1,p2,p3,p4,p5,p6,...)
+   const int            nn  ,  ///< number of source nodes
+   const int            np  ,  ///< number of segment pairs
+   const int            mode   ///< isotropy mode (0=isotropic,1=anisotropic)
+);
+
+__cuda_host__
 void SSF_GPU_Strm
 (
          SSF_FV_t      *fv  ,   ///< resulting forces        (f1,f2,f3,f4,....)

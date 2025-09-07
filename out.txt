@@ -1,0 +1,153 @@
+***********************************************************
+**** 
+**** Time of run:     Fri Sep  5 17:03:19 2025
+**** Executable name: paradis
+**** Executable path: bin
+**** Working dir:     /home/niu/文档/ParaDiS
+**** Execution host:  Nugent (Linux 5.15.0-139-generic x86_64)
+**** User name:       niu
+**** Number of tasks: 1
+**** Command line:    Tantalum.ctrl 
+**** 
+**** Build options enabled...
+****    -DNO_XWINDOW         : X-Windows disabled
+****    -DFIX_PLASTIC_STRAIN : Plastic strain fix enabled
+****    -DTAYLORFMM          : Taylor expansion FMM enabled
+****
+****    -DGPU_ENABLED        : GPU support available (enable via control params)
+****
+****        GPU DEVICE INFO...
+****        --------------------------------------------------------
+****        gpu device type       : NVIDIA GeForce MX150
+****        gpu device count      : 1
+****        global memory         : 1994MB (1GB)
+****        compute mode          : 61
+****        warp size             : 32 
+****        max threads per block : 1024 
+****        unified addressing    : yes
+****        device overlap        : yes
+****        SMU count             : 3
+****        SMU shared mem        : 96K
+****        SMU regs              : 64K
+****
+***********************************************************
+Initialize: Parsing control file Tantalum.ctrl
+Initialize: Control file parsing complete
+GPU-accelerated SegSeg Forces are ENABLED
+Reading file inputs/Rijm.cube.out ...
+done.
+Reading file inputs/RijmPBC.cube.out ...
+done.
+Warning: Tantalum_results-1 already exists
+chdir successful on all tasks.
++----------------------------------------------------------------------------------------
+| ParaDiS Simulation and control initialization summary
+|
+| MPI and Cell configuration controls
+|
+|   MPI ranks (total)            : 1
+|   MPI geometry                 : 1 x 1 x 1 (xyz)
+|   cell geometry                : 1 x 1 x 1 (xyz)
+|
+| Simulation box and periodic boundary conditions
+|   simulation node count        : 464
+|   simulation box (x)           : [ -4000,+4000 ] (8000b, 2.3um)
+|   simulation box (y)           : [ -4000,+4000 ] (8000b, 2.3um)
+|   simulation box (z)           : [ -4000,+4000 ] (8000b, 2.3um)
+|   burgmag                      : 2.8754e-10
+|
+|   periodic boundary (x)        : periodic
+|   periodic boundary (y)        : periodic
+|   periodic boundary (z)        : periodic
+|
+|   decompType                   : 2
+|   dlb_freq                     : 0
+|   dlb_cycles                   : 0
+|
+| Integration and timestep controls
+|   integrator                   : trapezoid
+|   trapezoid max integrations   : 2
+|
+|   start cycle                  : 0
+|   last  cycle                  : 1
+|
+|   timeNow                      : 0.000000e+00
+|   timeStart                    : 0.000000e+00
+|   timeEnd                      : -1.000000e+00
+|
+|   deltaTT                      : 1.00e-08
+|   maxDT                        : 1.00e-07
+|   dtIncrementFact              : 1.2
+|   dtDecrementFact              : 0.5
+|   dtExponent                   : 4.0
+|
+|   minseg                       : 34.0
+|   maxseg                       : 500.0
+|   rtol                         : 0.5
+|   rmax                         : 100.0
+|   rc                           : 2.0000
+|   rann                         : 1.0
+|   remesh area (min)            : 500.0
+|   remesh area (max)            : 55126.6
+|   split multinode freq         : 1
+|   split multinode alpha        : 0.001
+|
+| FMM control parameters
+|   FMM enabled                  : no
+|
+| Mobility
+|   mobility law                 : BCC_0
+|   material type                : BCC
+|
+|   mobility (screw)             : 1.0e+01
+|   mobility (edge )             : 1.0e+01
+|   mobility (climb)             : 1.0e-02
+|   mobility (glide)             : 1.0e+02
+|   mobility (line )             : 1.0e+04
+|
+|   mobility climb junc          : 1.0e+00
+|   mobility split               : 0
+|   mobility climb split         : -1.0e+00
+|
+|   shear velocity               : 3400.0
+|
+|   enforce glide planes         : no
+|   enable  cross slip           : no
+|
+|   elasticConstantMatrix        : [ +2.59e+11 +1.29e+11 +1.29e+11 +0.00e+00 +0.00e+00 +0.00e+00  
+|                                    +1.29e+11 +2.59e+11 +1.29e+11 +0.00e+00 +0.00e+00 +0.00e+00  
+|                                    +1.29e+11 +1.29e+11 +2.59e+11 +0.00e+00 +0.00e+00 +0.00e+00  
+|                                    +0.00e+00 +0.00e+00 +0.00e+00 +6.49e+10 +0.00e+00 +0.00e+00  
+|                                    +0.00e+00 +0.00e+00 +0.00e+00 +0.00e+00 +6.49e+10 +0.00e+00  
+|                                    +0.00e+00 +0.00e+00 +0.00e+00 +0.00e+00 +0.00e+00 +6.49e+10 ]
+|
+| Simulation parameters
+|   shear modulus                : 6.488424e+10
+|   Young's modulus              : 1.729500e+11
+|   poisson ratio                : 0.332753
+|   ecrit                        : 0.000100
+|   c/a                          : 1.568000
+|   temp                         : 600.00 K
+|   pressure                     : 0.0000 MPa
+|   load type                    : 1
+|   applied stress               : [ +0.0e+00 +0.0e+00 +0.0e+00 +0.0e+00 +0.0e+00 +0.0e+00 ]
+|   eRate                        : +1000.000000
+|   edotdir                      : [ +1.0000 +0.0000 +0.0000 ]
+|   rotMatrix                    : [ +1.0000 +0.0000 +0.0000  
+|                                    +0.0000 +1.0000 +0.0000  
+|                                    +0.0000 +0.0000 +1.0000 ]
+|
+| GPU and OpenMP acceleration
+|   gpu_enabled                  : yes
+|   gpu_nstrm                    : 4
+|   gpu_nthrd                    : 256
+|   gpu_npblk                    : 65536
+|
++----------------------------------------------------------------------------------------
+ParadisInit finished
+cycle=1         realdt=1.000000e-08 timeNow=1.000000e-08 date=Fri Sep  5 17:03:22 2025 elapsed=00:00:00.0 walldt= 0.0s mem=236MB
+ParadisFinish
+ +++ Writing Gnuplot file(s) gnuplot.final
+ +++ Writing Povray file(s) povframe.final
+ +++ Wrote restart file(s) restart.cn
+Estimated memory usage (proc 0): 368556k bytes
