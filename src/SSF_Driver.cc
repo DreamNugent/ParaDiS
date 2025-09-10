@@ -1024,10 +1024,10 @@ void SSF_Iso_SoA_K
       real8 tf3x, tf3y, tf3z;
       real8 tf4x, tf4y, tf4z;
 
-      // Compute forces using the scalar version of SSF_Iso
-      SSF_Iso(tf1x,tf1y,tf1z, tf2x,tf2y,tf2z, tf3x,tf3y,tf3z, tf4x,tf4y,tf4z,
-              p1[0],p1[1],p1[2], p2[0],p2[1],p2[2], p3[0],p3[1],p3[2], p4[0],p4[1],p4[2],
-              b1[0],b1[1],b1[2], b3[0],b3[1],b3[2], a,mu,nu,ecrit);
+      // Compute forces using SSF_Iso_SoA (same computation as AoS version with periodic boundaries)
+      SSF_Iso_SoA(tf1x,tf1y,tf1z, tf2x,tf2y,tf2z, tf3x,tf3y,tf3z, tf4x,tf4y,tf4z,
+                  p1[0],p1[1],p1[2], p2[0],p2[1],p2[2], p3[0],p3[1],p3[2], p4[0],p4[1],p4[2],
+                  b1[0],b1[1],b1[2], b3[0],b3[1],b3[2], a,mu,nu,ecrit, lx,ly,lz, sx,sy,sz);
 
       // Store results in SoA layout - coalesced memory writes
       if (f1x && f1y && f1z) { f1x[i] = tf1x; f1y[i] = tf1y; f1z[i] = tf1z; }
@@ -2003,7 +2003,7 @@ void SSF_Compute_Forces
       SSF_Gather_Nodes(nv,nodes,nn);                                  // serialize the node positions
       SSF_Gather_Pairs(pv,sp,np);                                     // serialize the segment pairs
 
-      if (gpu_enabled) { SSF_GPU (fv,nv,pv,nn,np,mode); }        // compute forces using gpu
+      if (gpu_enabled) { SSF_GPU_SoA (fv,nv,pv,nn,np,mode); }        // compute forces using gpu
       else
       {
          if (mode==0)  { SSF_Iso_CPU  (fv,nv,pv,np); }                // compute iso   forces using cpu

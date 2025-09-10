@@ -1234,3 +1234,58 @@ void SSF_Iso
    *f4x = f4[0];  *f4y = f4[1];  *f4z = f4[2];
 }
 
+// SoA version with periodic boundary conditions (same computation as AoS version)
+//-----------------------------------------------------------------------------------------------
+
+__cuda_hdev__
+void SSF_Iso_SoA
+(
+         real8  &f1x,       real8  &f1y,       real8  &f1z,    ///< resulting force on node 1 <xyz>
+         real8  &f2x,       real8  &f2y,       real8  &f2z,    ///< resulting force on node 2 <xyz>
+         real8  &f3x,       real8  &f3y,       real8  &f3z,    ///< resulting force on node 3 <xyz>
+         real8  &f4x,       real8  &f4y,       real8  &f4z,    ///< resulting force on node 4 <xyz>
+
+   const real8   p1x, const real8   p1y, const real8   p1z,    ///< position of node 1 <xyz>
+   const real8   p2x, const real8   p2y, const real8   p2z,    ///< position of node 2 <xyz>
+   const real8   p3x, const real8   p3y, const real8   p3z,    ///< position of node 3 <xyz>
+   const real8   p4x, const real8   p4y, const real8   p4z,    ///< position of node 4 <xyz>
+
+   const real8   b1x, const real8   b1y, const real8   b1z,    ///< burgers vector for segment p1->p2
+   const real8   b3x, const real8   b3y, const real8   b3z,    ///< burgers vector for segment p3->p4
+
+   const real8   a     ,                                       ///< core radius
+   const real8   mu    ,                                       ///< shear modulus
+   const real8   nu    ,                                       ///< poisson ratio
+   const real8   ecrit ,                                       ///< critical angle for parallelism test
+   const real8   lx    ,                                       ///< simulation box size (x)
+   const real8   ly    ,                                       ///< simulation box size (y)
+   const real8   lz    ,                                       ///< simulation box size (z)
+   const real8   sx    ,                                       ///< reciprocal of simulation box size (1.0/lx) (zero if PBC not active)
+   const real8   sy    ,                                       ///< reciprocal of simulation box size (1.0/ly) (zero if PBC not active)
+   const real8   sz                                            ///< reciprocal of simulation box size (1.0/lz) (zero if PBC not active)
+)
+{
+         real8 f1[3] = { 0.0 };
+         real8 f2[3] = { 0.0 };
+         real8 f3[3] = { 0.0 };
+         real8 f4[3] = { 0.0 };
+
+   const real8 p1[3] = { p1x, p1y, p1z };
+   const real8 p2[3] = { p2x, p2y, p2z };
+   const real8 p3[3] = { p3x, p3y, p3z };
+   const real8 p4[3] = { p4x, p4y, p4z };
+
+   const real8 b1[3] = { b1x, b1y, b1z };
+   const real8 b3[3] = { b3x, b3y, b3z };
+
+   // Call the SAME SSF_Iso function that AoS version uses (with periodic boundary conditions)
+   // This ensures identical computation to the AoS version
+   SSF_Iso(f1, f2, f3, f4, p1, p2, p3, p4, b1, b3, a, mu, nu, ecrit, lx, ly, lz, sx, sy, sz);
+
+   // Extract results to scalar variables
+   f1x = f1[0]; f1y = f1[1]; f1z = f1[2];
+   f2x = f2[0]; f2y = f2[1]; f2z = f2[2];
+   f3x = f3[0]; f3y = f3[1]; f3z = f3[2];
+   f4x = f4[0]; f4y = f4[1]; f4z = f4[2];
+}
+
