@@ -1260,20 +1260,31 @@ void SSF_GPU_SoA
         unsigned char *pc = mbuf_cpu;
         unsigned char *pg = mbuf_gpu;
 
-        // Host memory layout (SoA force components)
-        real8 *f1x_h = (real8 *) pc; pc += np * sizeof(real8);
-        real8 *f1y_h = (real8 *) pc; pc += np * sizeof(real8);
-        real8 *f1z_h = (real8 *) pc; pc += np * sizeof(real8);
-        real8 *f2x_h = (real8 *) pc; pc += np * sizeof(real8);
-        real8 *f2y_h = (real8 *) pc; pc += np * sizeof(real8);
-        real8 *f2z_h = (real8 *) pc; pc += np * sizeof(real8);
-        real8 *f3x_h = (real8 *) pc; pc += np * sizeof(real8);
-        real8 *f3y_h = (real8 *) pc; pc += np * sizeof(real8);
-        real8 *f3z_h = (real8 *) pc; pc += np * sizeof(real8);
-        real8 *f4x_h = (real8 *) pc; pc += np * sizeof(real8);
-        real8 *f4y_h = (real8 *) pc; pc += np * sizeof(real8);
-        real8 *f4z_h = (real8 *) pc; pc += np * sizeof(real8);
+        // Allocate separate buffer for SoA force components to avoid memory overlap
+        size_t soa_force_size = 12 * np * sizeof(real8);  // 12 force components (f1x,f1y,f1z,f2x,f2y,f2z,f3x,f3y,f3z,f4x,f4y,f4z)
+        unsigned char *soa_host_buffer = (unsigned char*)malloc(soa_force_size);
+        if (!soa_host_buffer) {
+            printf("Error: Failed to allocate SoA host buffer\n");
+            return;
+        }
         
+        unsigned char *soa_pc = soa_host_buffer;
+        
+        // Host memory layout (SoA force components) - using separate buffer
+        real8 *f1x_h = (real8 *) soa_pc; soa_pc += np * sizeof(real8);
+        real8 *f1y_h = (real8 *) soa_pc; soa_pc += np * sizeof(real8);
+        real8 *f1z_h = (real8 *) soa_pc; soa_pc += np * sizeof(real8);
+        real8 *f2x_h = (real8 *) soa_pc; soa_pc += np * sizeof(real8);
+        real8 *f2y_h = (real8 *) soa_pc; soa_pc += np * sizeof(real8);
+        real8 *f2z_h = (real8 *) soa_pc; soa_pc += np * sizeof(real8);
+        real8 *f3x_h = (real8 *) soa_pc; soa_pc += np * sizeof(real8);
+        real8 *f3y_h = (real8 *) soa_pc; soa_pc += np * sizeof(real8);
+        real8 *f3z_h = (real8 *) soa_pc; soa_pc += np * sizeof(real8);
+        real8 *f4x_h = (real8 *) soa_pc; soa_pc += np * sizeof(real8);
+        real8 *f4y_h = (real8 *) soa_pc; soa_pc += np * sizeof(real8);
+        real8 *f4z_h = (real8 *) soa_pc; soa_pc += np * sizeof(real8);
+        
+        // Use original mbuf_cpu for node and pair data (no overlap with forces now)
         real8    *nvc = (real8    *) pc; pc += 3*nn*sizeof(real8);      // node positions (host)
         SSF_PV_t *pvc = (SSF_PV_t *) pc; pc += np*sizeof(SSF_PV_t);     // pair structures (host)
 
@@ -1357,6 +1368,9 @@ void SSF_GPU_SoA
                 fv[i].f4[0] = f4x_h[i]; fv[i].f4[1] = f4y_h[i]; fv[i].f4[2] = f4z_h[i];
             }
         }
+        
+        // Free the separate SoA host buffer
+        free(soa_host_buffer);
     }
 
 #endif  // __CUDACC__
