@@ -28,12 +28,108 @@
 #include "V3.h"
 #include "SegmentPairList.h"
 #include "NativeSeg.h"
+#include "Parse.h"
+#include "Decomp.h"
 #include "Moment.h"
 #include "SSF_Driver.h"
 
 #ifdef _ARLFEM
 #include "FEM.h"
 #endif
+
+/*---------------------------------------------------------------------------
+ *
+ *      Function:    WriteDebugRestart
+ *      Description: 在SSF_Compute_Forces计算后，输出当前状态的调试restart文件
+ *                   格式与标准restart.data文件相同，支持并行环境
+ *
+ *      Arguments:
+ *          home        指向Home_t结构的指针
+ *
+ *-------------------------------------------------------------------------*/
+static void WriteDebugRestart(Home_t *home)
+{
+    static int debugCounter = 0;
+    char fileName[256];
+    FILE *fp;
+    int i, iArm;
+    Node_t *node;
+
+    // 生成文件名，包含计数器和域ID避免重复
+    snprintf(fileName, sizeof(fileName), "restart-debug-%04d-%d.data", 
+             debugCounter, home->myDomain);
+
+#ifdef PARALLEL
+    // 在并行环境中，每个域都写入自己的文件
+    if ((fp = fopen(fileName, "w")) == NULL) {
+        printf("WriteDebugRestart: 无法打开文件 %s (域 %d)\n", fileName, home->myDomain);
+        return;
+    }
+
+    if (home->myDomain == 0) {
+        printf("生成调试restart文件: restart-debug-%04d-*.data (并行输出)\n", debugCounter);
+        debugCounter++;
+    }
+
+    // 每个域只写入自己的数据参数
+    if (home->myDomain == 0) {
+        WriteParam(home->dataParamList, -1, fp);
+        fprintf(fp, "\n#\n#  END OF DATA FILE PARAMETERS\n#\n\n");
+        fprintf(fp, "domainDecomposition = \n");
+        WriteDecompBounds(home, fp);
+        fprintf(fp, "nodalData = \n");
+        fprintf(fp, "#  Primary lines: node_tag, x, y, z, num_arms, constraint\n");
+        fprintf(fp, "#  Secondary lines: arm_tag, burgx, burgy, burgz, nx, ny, nz\n");
+    }
+#else
+    // 串行环境，只有主域写入
+    if (home->myDomain != 0) {
+        return;
+    }
+
+    if ((fp = fopen(fileName, "w")) == NULL) {
+        printf("WriteDebugRestart: 无法打开文件 %s\n", fileName);
+        return;
+    }
+
+    printf("生成调试restart文件: %s\n", fileName);
+    debugCounter++;
+
+    // 写入数据文件参数
+    WriteParam(home->dataParamList, -1, fp);
+    fprintf(fp, "\n#\n#  END OF DATA FILE PARAMETERS\n#\n\n");
+    fprintf(fp, "domainDecomposition = \n");
+    WriteDecompBounds(home, fp);
+    fprintf(fp, "nodalData = \n");
+    fprintf(fp, "#  Primary lines: node_tag, x, y, z, num_arms, constraint\n");
+    fprintf(fp, "#  Secondary lines: arm_tag, burgx, burgy, burgz, nx, ny, nz\n");
+#endif
+
+    // 写入本域的所有节点数据
+    for (i = 0; i < home->newNodeKeyPtr; i++) {
+        if ((node = home->nodeKeys[i]) == NULL) {
+            continue;
+        }
+
+        // 写入节点主要信息
+        fprintf(fp, " %d,%d %.8f %.8f %.8f %d %d\n",
+                node->myTag.domainID, node->myTag.index,
+                node->x, node->y, node->z, node->numNbrs,
+                node->constraint);
+
+        // 写入每个臂的信息
+        for (iArm = 0; iArm < node->numNbrs; iArm++) {
+            fprintf(fp, "   %d,%d %16.10e %16.10e %16.10e\n"
+                    "       %16.10e %16.10e %16.10e\n",
+                    node->nbrTag[iArm].domainID,
+                    node->nbrTag[iArm].index, node->burgX[iArm],
+                    node->burgY[iArm], node->burgZ[iArm],
+                    node->nx[iArm], node->ny[iArm], node->nz[iArm]);
+        }
+    }
+
+    fclose(fp);
+}
 
 #ifdef _ARLFEM
 /*---------------------------------------------------------------------------
@@ -2102,12 +2198,64 @@ void LocalSegForces(Home_t *home, int reqType)
                 TimerStart(home, SSF_GPU_FORCE);
                 SSF_Compute_Forces (home,ssf_sp,ssf_np,ssf_mode); 
                 TimerStop(home, SSF_GPU_FORCE);
+
+                // 计算并输出当前模拟节点总数量
+                int localNodeCount = 0;
+                int totalNodeCount = 0;
+                
+                // 统计本域的节点数量
+                for (int i = 0; i < home->newNodeKeyPtr; i++) {
+                    if (home->nodeKeys[i]) {
+                        localNodeCount++;
+                    }
+                }
+
+#ifdef PARALLEL
+                // 在并行环境下，计算所有域的节点总数
+                MPI_Reduce(&localNodeCount, &totalNodeCount, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+                if (home->myDomain == 0) {
+                    printf("SSF_Compute_Forces 完成后的节点总数: %d\n", totalNodeCount);
+                }
+#else
+                // 串行环境下，直接使用本地节点数
+                totalNodeCount = localNodeCount;
+                printf("SSF_Compute_Forces 完成后的节点总数: %d\n", totalNodeCount);
+#endif
+
+                // 生成调试用的 restart-debug.data 文件
+                WriteDebugRestart(home);
             }
 #else
             if ( ssf_sp && (ssf_np>0) ) { 
                 TimerStart(home, SSF_CPU_FORCE);
                 ComputeForces  (home,ssf_sp,ssf_np); 
                 TimerStop(home, SSF_CPU_FORCE);
+
+                // 计算并输出当前模拟节点总数量
+                int localNodeCount = 0;
+                int totalNodeCount = 0;
+                
+                // 统计本域的节点数量
+                for (int i = 0; i < home->newNodeKeyPtr; i++) {
+                    if (home->nodeKeys[i]) {
+                        localNodeCount++;
+                    }
+                }
+
+#ifdef PARALLEL
+                // 在并行环境下，计算所有域的节点总数
+                MPI_Reduce(&localNodeCount, &totalNodeCount, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+                if (home->myDomain == 0) {
+                    printf("ComputeForces 完成后的节点总数: %d\n", totalNodeCount);
+                }
+#else
+                // 串行环境下，直接使用本地节点数
+                totalNodeCount = localNodeCount;
+                printf("ComputeForces 完成后的节点总数: %d\n", totalNodeCount);
+#endif
+
+                // 生成调试用的 restart-debug.data 文件
+                WriteDebugRestart(home);
             }
 #endif
 
